@@ -1,57 +1,4 @@
-import os
-import sqlite3
-import discord
-from discord.ext import commands
-from discord.ui import Select, View
-import google.generativeai as genai  # Gemini用のライブラリを追加
 
-# 環境変数からトークンやID、GeminiのAPIキーを取得
-TOKEN = os.environ["DISCORD_BOT_TOKEN"].strip()
-ADMIN_USER_ID = int(os.environ["ADMIN_USER_ID"].strip())
-
-# GeminiのAPIキーが設定されている場合のみ有効化
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    print("Gemini AI has been configured successfully.")
-else:
-    print("Warning: GEMINI_API_KEY is missing. !ai command will not work.")
-
-DB_PATH = "shop.db"
-
-# ---------------------------------------------------------------------------
-# Database helpers
-# ---------------------------------------------------------------------------
-
-def init_db():
-    con = sqlite3.connect(DB_PATH)
-    cur = con.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS products (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            price INTEGER NOT NULL DEFAULT 0,
-            stock INTEGER NOT NULL DEFAULT 0,
-            paypay_link TEXT NOT NULL DEFAULT '',
-            product_content TEXT NOT NULL DEFAULT ''
-        )
-    """)
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS config (
-            key TEXT PRIMARY KEY,
-            value TEXT NOT NULL
-        )
-    """)
-    con.commit()
-    con.close()
-
-def get_config(key: str) -> str | None:
-    con = sqlite3.connect(DB_PATH)
-    cur = con.cursor()
-    cur.execute("SELECT value FROM config WHERE key = ?", (key,))
-    row = cur.fetchone()
-    con.close()
-    return row[0] if row else None
 
 def set_config(key: str, value: str):
     con = sqlite3.connect(DB_PATH)
@@ -785,9 +732,4 @@ async def on_ready():
             try:
                 await repost_shop(channel)
             except Exception as e:
-                print(f"Error reposting shop in {channel_id}: {e}")
-        else:
-            print(f"Repost channel {channel_id} not accessible")
-
-
-bot.run(TOKEN)
+                print
