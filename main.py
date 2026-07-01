@@ -8,7 +8,8 @@ from discord.ui import Select, View, Modal, TextInput
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 # PayPayリンクを回収したい「管理者用チャンネル」のID
 # ※Renderの環境変数（CHANNEL_ID）として登録してあるものを使います
-ADMIN_CHANNEL_ID = int(os.getenv("CHANNEL_ID", "0"))
+ADMIN_CHANNEL_ID =1234567890
+
 # ----------------------------------------
 
 class MyBot(discord.Client):
