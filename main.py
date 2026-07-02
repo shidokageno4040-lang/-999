@@ -1,4 +1,3 @@
-import os
 import discord
 from discord import app_commands
 from discord.ui import Select, View, Modal, TextInput
@@ -19,7 +18,7 @@ class MyBot(discord.Client):
         intents.message_content = True
         intents.members = True
         super().__init__(intents=intents)
-        self.tree = app_commands.CommandTree(self)
+        self.ree = app_commands.CommandTree(self)
 
     async def setup_hook(self):
         await self.tree.sync()
@@ -217,3 +216,4 @@ async def on_ready():
 if __name__ == "__main__":
     threading.Thread(target=run_dummy_server, daemon=True).start()
     bot.run(TOKEN)
+
