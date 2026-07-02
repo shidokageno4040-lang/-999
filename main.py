@@ -1,9 +1,15 @@
-DISCORD_BOT_TOKEN")
+import os
+import discord
+from discord import app_commands
+from discord.ui import Select, View, Modal, TextInput
 
-# ⚠️ 12行目：PayPayリンクを回収したい「管理者用チャンネル」のID
+# ----------------- 設定 -----------------
+TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+
+# 管理者用チャンネルID（入力済み）
 ADMIN_CHANNEL_ID = 1521944800973029576
 
-# ⚠️ 14行目：実績ログを流したい公開チャンネルのID
+# 実績ログ用チャンネルID（入力済み）
 LOG_CHANNEL_ID = 1520748892742746174
 # ----------------------------------------
 
@@ -28,7 +34,6 @@ ITEMS = {
     "item5": {"name": "paypay3万円-5万円 本人確認済み", "price": 4000},
 }
 
-# --- 実績を綺麗に形作る共通の関数 ---
 async def send_achievement_embed(buyer_name, item_info, comment):
     log_channel = bot.get_channel(LOG_CHANNEL_ID)
     if log_channel:
@@ -40,7 +45,6 @@ async def send_achievement_embed(buyer_name, item_info, comment):
         return True
     return False
 
-# --- 【購入者用】許可された後に開く実績入力画面 ---
 class UserReviewModal(Modal):
     def __init__(self, item_name, count):
         super().__init__(title="実績の投稿")
@@ -65,7 +69,6 @@ class UserReviewModal(Modal):
         else:
             await interaction.followup.send("エラー：実績チャンネルが見つかりませんでした。", ephemeral=True)
 
-# --- 【管理者用】購入者に実績投稿を許可するボタンが付いたView ---
 class AdminApproveView(View):
     def __init__(self, buyer_id, item_name, count):
         super().__init__(timeout=None)
@@ -105,7 +108,6 @@ class AdminApproveView(View):
         else:
             await interaction.followup.send("ユーザーが見つかりませんでした。", ephemeral=True)
 
-# --- PayPayリンク入力画面 ---
 class PayPayModal(Modal):
     def __init__(self, item_name, count, total_price):
         super().__init__(title=f"{item_name} を購入")
@@ -143,7 +145,6 @@ class PayPayModal(Modal):
         else:
             await interaction.followup.send("エラー：管理者チャンネルが見つかりませんでした。", ephemeral=True)
 
-# --- 個数を選ぶメニュー ---
 class CountSelect(Select):
     def __init__(self, item_key):
         self.item_key = item_key
@@ -156,7 +157,6 @@ class CountSelect(Select):
         item = ITEMS[self.item_key]
         await interaction.response.send_modal(PayPayModal(item["name"], count, item["price"] * count))
 
-# --- 商品を選ぶメニュー ---
 class ItemSelect(Select):
     def __init__(self):
         options = [discord.SelectOption(label=data["name"], value=key, description=f"値段: {data['price']}円") for key, data in ITEMS.items()]
@@ -172,7 +172,6 @@ class StartView(View):
         super().__init__(timeout=None)
         self.add_item(ItemSelect())
 
-# --- 自販機起動コマンド ---
 @bot.tree.command(name="vending", description="自販機メニューを表示します")
 async def vending(interaction: discord.Interaction):
     embed = discord.Embed(title="🏪 自動販売機", description="メニューを選択して購入してください。", color=discord.Color.blue())
@@ -180,8 +179,6 @@ async def vending(interaction: discord.Interaction):
         embed.add_field(name=data["name"], value=f"値段: {data['price']}円", inline=False)
     await interaction.response.send_message(embed=embed, view=StartView())
 
-
-# --- 【管理者専用】購入者の代わりに実績を代理投稿する隠しコマンド ---
 @bot.tree.command(name="jissteki_proxy", description="【管理者専用】購入者の代わりに実績を代理投稿します")
 @app_commands.describe(
     buyer="購入者の名前、またはメンション（例: @あずさ）",
@@ -201,8 +198,6 @@ async def jissteki_proxy(interaction: discord.Interaction, buyer: str, item: str
     else:
         await interaction.followup.send("エラー：実績チャンネルが見つかりませんでした。IDを確認してください。", ephemeral=True)
 
-
-# ダミーサーバー
 import threading
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 
@@ -222,4 +217,3 @@ async def on_ready():
 if __name__ == "__main__":
     threading.Thread(target=run_dummy_server, daemon=True).start()
     bot.run(TOKEN)
-
