@@ -1,10 +1,4 @@
-import os
-import discord
-from discord import app_commands
-from discord.ui import Select, View, Modal, TextInput
-
-# ----------------- 設定 -----------------
-TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+DISCORD_BOT_TOKEN")
 
 # ⚠️ 12行目：PayPayリンクを回収したい「管理者用チャンネル」のID
 ADMIN_CHANNEL_ID = 1521944800973029576
