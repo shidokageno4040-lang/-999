@@ -27,9 +27,9 @@ class MyBot(discord.Client):
 bot = MyBot()
 
 ITEMS = {
-    "item1": {"name": "PAYPAY残高1-2万円", "price": 1900},
-    "item2": {"name": "PAYPAY残高3-5万円", "price": 2400},
-    "item3": {"name": "PAYPAY残高6-7万円", "price": 3200},
+    "item1": {"name": "PAYPAY残高1-2万円", "price": 1500},
+    "item2": {"name": "PAYPAY残高3-5万円", "price": 2000},
+    "item3": {"name": "PAYPAY残高6-7万円", "price": 3000},
     "item4": {"name": "paypay1万円-2万円 本人確認済み", "price": 3000},
     "item5": {"name": "paypay3万円-5万円 本人確認済み", "price": 4000},
 }
