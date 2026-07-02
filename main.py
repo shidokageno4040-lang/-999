@@ -1,7 +1,7 @@
+import os
 import discord
 from discord import app_commands
 from discord.ui import Select, View, Modal, TextInput
-
 # ----------------- 設定 -----------------
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
@@ -18,7 +18,7 @@ class MyBot(discord.Client):
         intents.message_content = True
         intents.members = True
         super().__init__(intents=intents)
-        self.ree = app_commands.CommandTree(self)
+        self.tree = app_commands.CommandTree(self)
 
     async def setup_hook(self):
         await self.tree.sync()
