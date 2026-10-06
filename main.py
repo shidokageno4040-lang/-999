@@ -212,4 +212,4 @@ async def vending(interaction: discord.Interaction):
 
 @bot.tree.command(name="jissteki_proxy", description="【管理者専用】購入者の代わりに実績を代理投稿します")
 @app_commands.describe(
-    buyer　= "購入者の名前、またはメンバー"
+    buyer = "購入者の名前、またはメンバー"
