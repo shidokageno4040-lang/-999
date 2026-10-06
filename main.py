@@ -71,15 +71,6 @@ class UserReviewModal(Modal):
         else:
             await interaction.followup.send("エラー：実績チャンネルが見つかりませんでした。", ephemeral=True)
 
-class OpenReviewView(View):
-    def __init__(self, item_name, count):
-        super().__init__(timeout=None)
-        self.item_name = item_name
-        self.count = count
-
-    @discord.ui.button(label="🌟 実績を入力して投稿する", style=discord.ButtonStyle.primary, custom_id="open_review_btn")
-    async def open_modal_btn(self, act_interaction: discord.Interaction, btn: discord.ui.Button):
-        await act_interaction.response.send_modal(UserReviewModal(self.item_name, self.count))
 
 class AdminApproveView(View):
     def __init__(self, buyer_id, item_name, count):
@@ -87,50 +78,32 @@ class AdminApproveView(View):
         self.buyer_id = buyer_id
         self.item_name = item_name
         self.count = count
-        self.dm_message = None
+        self.is_approved = False
 
     @discord.ui.button(label="✅ 実績投稿を許可する", style=discord.ButtonStyle.success)
     async def approve_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer(ephemeral=True)
-        
-        buyer = await bot.fetch_user(self.buyer_id)
-        if buyer:
-            review_view = OpenReviewView(self.item_name, self.count)
-            try:
-                self.dm_message = await buyer.send(
-                    f"【Sanctuary《聖域》よりお知らせ】\n先ほどご購入いただいた「{self.item_name}」の実績投稿が許可されました！\n以下のボタンからぜひ実績の投稿をお願いします！✨",
-                    view=review_view
-                )
-                
-                button.disabled = True
-                button.label = "許可済み"
-                await interaction.message.edit(view=self)
-                
-                await interaction.followup.send(f"{buyer.name} さんに実績投稿の案内DMを送信しました！", ephemeral=True)
-            except Exception:
-                await interaction.followup.send("購入者のDMが閉じられているため、通知を送れませんでした。サーバー内で手動で案内してください。", ephemeral=True)
+        # 許可ボタンを押した時
+        if not self.is_approved:
+            self.is_approved = True
+            button.label = "🌟 実績を入力して投稿する"
+            button.style = discord.ButtonStyle.primary
+            await interaction.response.edit_message(view=self)
+            await interaction.followup.send("実績投稿を許可しました！購入者はこの画面のボタンから投稿できます。", ephemeral=True)
         else:
-            await interaction.followup.send("ユーザーが見つかりませんでした。", ephemeral=True)
+            # 許可後に購入者が「🌟 実績を入力して投稿する」を押した時
+            if interaction.user.id == self.buyer_id:
+                await interaction.response.send_modal(UserReviewModal(self.item_name, self.count))
+            else:
+                await interaction.response.send_message("このボタンは購入者本人のみ使用できます。", ephemeral=True)
 
     @discord.ui.button(label="🔒 実績投稿を切る（締め切り）", style=discord.ButtonStyle.danger)
     async def close_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer(ephemeral=True)
-        
-        if self.dm_message:
-            try:
-                disabled_view = View()
-                disabled_btn = discord.ui.Button(label="❌ 実績投稿の受付は終了しました", style=discord.ButtonStyle.secondary, disabled=True)
-                disabled_view.add_item(disabled_btn)
-                await self.dm_message.edit(content=f"【お知らせ】「{self.item_name}」の実績投稿の受け付けは終了（無効化）されました。", view=disabled_view)
-            except Exception:
-                pass
-
         for item in self.children:
             item.disabled = True
         button.label = "締め切り済み"
-        await interaction.message.edit(view=self)
-        
-        await interaction.followup.send("実績投稿の受付を切りました（購入者の投稿ボタンが無効化されました）。", ephemeral=True)
+        await interaction.response.edit_message(view=self)
+        await interaction.followup.send("実績投稿の受付を終了しました。", ephemeral=True)
+
 
 class PayPayModal(Modal):
     def __init__(self, item_name, count, total_price):
