@@ -82,16 +82,17 @@ class AdminApproveView(View):
 
     @discord.ui.button(label="✅ 実績投稿を許可する", style=discord.ButtonStyle.success)
     async def approve_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # 許可ボタンを押した時
+        # まだ許可されていない場合（管理者が押すステップ）
         if not self.is_approved:
             self.is_approved = True
             button.label = "🌟 実績を入力して投稿する"
             button.style = discord.ButtonStyle.primary
             await interaction.response.edit_message(view=self)
-            await interaction.followup.send("実績投稿を許可しました！購入者はこの画面のボタンから投稿できます。", ephemeral=True)
+            await interaction.followup.send("実績投稿を許可しました！このボタンから実績を投稿できます。", ephemeral=True)
         else:
-            # 許可後に購入者が「🌟 実績を入力して投稿する」を押した時
-            if interaction.user.id == self.buyer_id:
+            # 許可後に「🌟 実績を入力して投稿する」を押した時
+            # 購入者本人、または管理者（テスト中）ならモーダルを開く
+            if interaction.user.id == self.buyer_id or interaction.user.guild_permissions.administrator:
                 await interaction.response.send_modal(UserReviewModal(self.item_name, self.count))
             else:
                 await interaction.response.send_message("このボタンは購入者本人のみ使用できます。", ephemeral=True)
