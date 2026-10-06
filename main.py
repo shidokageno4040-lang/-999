@@ -156,4 +156,4 @@ class PayPayModal(Modal):
             embed.add_field(name="購入者", value=interaction.user.mention, inline=False)
             embed.add_field(name="商品名", value=self.item_name, inline=True)
             embed.add_field(name="個数", value=f"{self.count} 個", inline=True)
-            embed.add_field(name="合計金額", value=f"{self.total_price} 円", inline=True
+            embed.add_field(name="合計金額", value=f"{self.total_price} 円", inline=True)
