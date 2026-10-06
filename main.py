@@ -2,13 +2,16 @@ import os
 import discord
 from discord import app_commands
 from discord.ui import Select, View, Modal, TextInput
+import threading
+from http.server import SimpleHTTPRequestHandler, HTTPServer
+
 # ----------------- 設定 -----------------
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
-# 管理者用チャンネルID（入力済み）
+# 管理者用チャンネルID
 ADMIN_CHANNEL_ID = 1521944800973029576
 
-# 実績ログ用チャンネルID（入力済み）
+# 実績ログ用チャンネルID
 LOG_CHANNEL_ID = 1520748892742746174
 # ----------------------------------------
 
@@ -68,12 +71,25 @@ class UserReviewModal(Modal):
         else:
             await interaction.followup.send("エラー：実績チャンネルが見つかりませんでした。", ephemeral=True)
 
+# 購入者のDMに送信される実績投稿用のView（ボタンが無効化できるように改修）
+class OpenReviewView(View):
+    def __init__(self, item_name, count):
+        super().__init__(timeout=None) # 管理者が手動で切るまでタイムアウトしない設定
+        self.item_name = item_name
+        self.count = count
+
+    @discord.ui.button(label="🌟 実績を入力して投稿する", style=discord.ButtonStyle.primary, custom_id="open_review_btn")
+    async def open_modal_btn(self, act_interaction: discord.Interaction, btn: discord.ui.Button):
+        await act_interaction.response.send_modal(UserReviewModal(self.item_name, self.count))
+
+
 class AdminApproveView(View):
     def __init__(self, buyer_id, item_name, count):
         super().__init__(timeout=None)
         self.buyer_id = buyer_id
         self.item_name = item_name
         self.count = count
+        self.dm_message = None  # 購入者に送ったDMのメッセージを保持
 
     @discord.ui.button(label="✅ 実績投稿を許可する", style=discord.ButtonStyle.success)
     async def approve_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -81,20 +97,12 @@ class AdminApproveView(View):
         
         buyer = await bot.fetch_user(self.buyer_id)
         if buyer:
-            class OpenReviewView(View):
-                def __init__(self, item_name, count):
-                    super().__init__(timeout=600)
-                    self.item_name = item_name
-                    self.count = count
-
-                @discord.ui.button(label="🌟 実績を入力して投稿する", style=discord.ButtonStyle.primary)
-                async def open_modal_btn(self, act_interaction: discord.Interaction, btn: discord.ui.Button):
-                    await act_interaction.response.send_modal(UserReviewModal(self.item_name, self.count))
-
+            review_view = OpenReviewView(self.item_name, self.count)
             try:
-                await buyer.send(
+                # DMメッセージを保持しておく
+                self.dm_message = await buyer.send(
                     f"【Sanctuary《聖域》よりお知らせ】\n先ほどご購入いただいた「{self.item_name}」の実績投稿が許可されました！\n以下のボタンからぜひ実績の投稿をお願いします！✨",
-                    view=OpenReviewView(self.item_name, self.count)
+                    view=review_view
                 )
                 
                 button.disabled = True
@@ -106,6 +114,30 @@ class AdminApproveView(View):
                 await interaction.followup.send("購入者のDMが閉じられているため、通知を送れませんでした。サーバー内で手動で案内してください。", ephemeral=True)
         else:
             await interaction.followup.send("ユーザーが見つかりませんでした。", ephemeral=True)
+
+    # ------------------ 追加：管理者が実績投稿を切る（締め切る）ボタン ------------------
+    @discord.ui.button(label="🔒 実績投稿を切る（締め切り）", style=discord.ButtonStyle.danger)
+    async def close_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(ephemeral=True)
+        
+        # DMが送られている場合はDM側のボタンを無効化（無効表示）に変更する
+        if self.dm_message:
+            try:
+                disabled_view = View()
+                disabled_btn = discord.ui.Button(label="❌ 実績投稿の受付は終了しました", style=discord.ButtonStyle.secondary, disabled=True)
+                disabled_view.add_item(disabled_btn)
+                await self.dm_message.edit(content=f"【お知らせ】「{self.item_name}」の実績投稿の受け付けは終了（無効化）されました。", view=disabled_view)
+            except Exception:
+                pass # すでにDMが消されているなどの場合はスルー
+
+        # 管理者チャンネル側のボタンも無効化・見た目を変更
+        for item in self.children:
+            item.disabled = True
+        button.label = "締め切り済み"
+        await interaction.message.edit(view=self)
+        
+        await interaction.followup.send("実績投稿の受付を切りました（購入者の投稿ボタンが無効化されました）。", ephemeral=True)
+
 
 class PayPayModal(Modal):
     def __init__(self, item_name, count, total_price):
@@ -180,40 +212,4 @@ async def vending(interaction: discord.Interaction):
 
 @bot.tree.command(name="jissteki_proxy", description="【管理者専用】購入者の代わりに実績を代理投稿します")
 @app_commands.describe(
-    buyer="購入者の名前、またはメンション（例: @あずさ）",
-    item="商品名と個数（例: paypayポイント1万円分 ×1）",
-    comment="コメント（例: スムーズな取引でした！）"
-)
-async def jissteki_proxy(interaction: discord.Interaction, buyer: str, item: str, comment: str):
-    if not interaction.user.guild_permissions.manage_channels:
-        await interaction.response.send_message("このコマンドは管理者のみ使用できます。", ephemeral=True)
-        return
-
-    await interaction.response.defer(ephemeral=True)
-    success = await send_achievement_embed(buyer, item, comment)
-    
-    if success:
-        await interaction.followup.send(f"【代理投稿完了】\n{buyer} さんの実績を公開しました！", ephemeral=True)
-    else:
-        await interaction.followup.send("エラー：実績チャンネルが見つかりませんでした。IDを確認してください。", ephemeral=True)
-
-import threading
-from http.server import SimpleHTTPRequestHandler, HTTPServer
-
-def run_dummy_server():
-    class MyHandler(SimpleHTTPRequestHandler):
-        def do_GET(self):
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b"OK")
-    server = HTTPServer(("0.0.0.0", 10000), MyHandler)
-    server.serve_forever()
-
-@bot.event
-async def on_ready():
-    print(f"Logged in as {bot.user.name}")
-
-if __name__ == "__main__":
-    threading.Thread(target=run_dummy_server, daemon=True).start()
-    bot.run(TOKEN)
-
+    buyer="購入者の名前、またはメン
