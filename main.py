@@ -71,7 +71,6 @@ class UserReviewModal(Modal):
         else:
             await interaction.followup.send("エラー：実績チャンネルが見つかりませんでした。", ephemeral=True)
 
-# 購入者のDMに送信される実績投稿用のView
 class OpenReviewView(View):
     def __init__(self, item_name, count):
         super().__init__(timeout=None)
@@ -81,7 +80,6 @@ class OpenReviewView(View):
     @discord.ui.button(label="🌟 実績を入力して投稿する", style=discord.ButtonStyle.primary, custom_id="open_review_btn")
     async def open_modal_btn(self, act_interaction: discord.Interaction, btn: discord.ui.Button):
         await act_interaction.response.send_modal(UserReviewModal(self.item_name, self.count))
-
 
 class AdminApproveView(View):
     def __init__(self, buyer_id, item_name, count):
@@ -134,7 +132,6 @@ class AdminApproveView(View):
         
         await interaction.followup.send("実績投稿の受付を切りました（購入者の投稿ボタンが無効化されました）。", ephemeral=True)
 
-
 class PayPayModal(Modal):
     def __init__(self, item_name, count, total_price):
         super().__init__(title=f"{item_name} を購入")
@@ -157,3 +154,79 @@ class PayPayModal(Modal):
             embed.add_field(name="商品名", value=self.item_name, inline=True)
             embed.add_field(name="個数", value=f"{self.count} 個", inline=True)
             embed.add_field(name="合計金額", value=f"{self.total_price} 円", inline=True)
+            embed.add_field(name="PayPayリンク", value=self.link_input.value, inline=False)
+            embed.add_field(name="パスワード", value=self.pwd_input.value or "なし", inline=False)
+            
+            await admin_channel.send(
+                embed=embed, 
+                view=AdminApproveView(interaction.user.id, self.item_name, self.count)
+            )
+
+            await interaction.followup.send(
+                f"【購入申請を受け付けました】\nスタッフが確認後、商品をお渡ししますのでお待ちください！",
+                ephemeral=True
+            )
+        else:
+            await interaction.followup.send("エラー：管理者チャンネルが見つかりませんでした。", ephemeral=True)
+
+class CountSelect(Select):
+    def __init__(self, item_key):
+        self.item_key = item_key
+        item = ITEMS[item_key]
+        options = [discord.SelectOption(label=f"購入数: {i}個", value=str(i), description=f"合計金額: {item['price'] * i}円") for i in range(1, 6)]
+        super().__init__(placeholder="個数を選択してください", options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        count = int(self.values[0])
+        item = ITEMS[self.item_key]
+        await interaction.response.send_modal(PayPayModal(item["name"], count, item["price"] * count))
+
+class ItemSelect(Select):
+    def __init__(self):
+        options = [discord.SelectOption(label=data["name"], value=key, description=f"値段: {data['price']}円") for key, data in ITEMS.items()]
+        super().__init__(placeholder="ここから選択", options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        view = View()
+        view.add_item(CountSelect(self.values[0]))
+        await interaction.response.send_message("購入数を選んでください", view=view, ephemeral=True)
+
+class StartView(View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(ItemSelect())
+
+@bot.tree.command(name="vending", description="自販機メニューを表示します")
+async def vending(interaction: discord.Interaction):
+    embed = discord.Embed(title="🏪 自動販売機", description="メニューを選択して購入してください。", color=discord.Color.blue())
+    for key, data in ITEMS.items():
+        embed.add_field(name=data["name"], value=f"値段: {data['price']}円", inline=False)
+    await interaction.response.send_message(embed=embed, view=StartView())
+
+@bot.tree.command(name="jissteki_proxy", description="【管理者専用】購入者の代わりに実績を代理投稿します")
+@app_commands.describe(
+    buyer="購入者の名前、またはメンバー",
+    item_info="商品名や数量（例: PAYPAY残高 1個）",
+    comment="お客様からのコメント"
+)
+async def jissteki_proxy(interaction: discord.Interaction, buyer: str, item_info: str, comment: str):
+    await interaction.response.defer(ephemeral=True)
+    success = await send_achievement_embed(buyer, item_info, comment)
+    if success:
+        await interaction.followup.send("代理実績を投稿しました！", ephemeral=True)
+    else:
+        await interaction.followup.send("エラー：実績チャンネルが見つかりませんでした。", ephemeral=True)
+
+def run_dummy_server():
+    port = int(os.environ.get("PORT", 10000))
+    server_address = ('', port)
+    httpd = HTTPServer(server_address, SimpleHTTPRequestHandler)
+    httpd.serve_forever()
+
+if __name__ == "__main__":
+    threading.Thread(target=run_dummy_server, daemon=True).start()
+    
+    if TOKEN:
+        bot.run(TOKEN)
+    else:
+        print("エラー: DISCORD_BOT_TOKEN が環境変数に設定されていません。")
